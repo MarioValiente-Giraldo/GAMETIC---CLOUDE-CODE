@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: gametic-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gametic
+      POSTGRES_PASSWORD: gametic123
+      POSTGRES_DB: gametic
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: gametic-backend
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      DATABASE_URL: postgresql://gametic:gametic123@db:5432/gametic
+      JWT_SECRET: gametic-super-secret-key-change-in-production
+      PORT: '4000'
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

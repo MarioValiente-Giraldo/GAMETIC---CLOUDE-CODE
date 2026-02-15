@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Hero from '../components/layout/Hero';
 import GameCard from '../components/game/GameCard';
 import ReviewCard from '../components/game/ReviewCard';
-import { featuredGames } from '../data/gamesData';
+import { getFeaturedGames, type Game } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 const Landing: React.FC = () => {
+  const { user, logout } = useAuth();
+  const [featuredGames, setFeaturedGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getFeaturedGames()
+      .then(setFeaturedGames)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   // Mock data for reviews
   const recentReviews = [
@@ -73,6 +84,27 @@ const Landing: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0015] via-[#1a0a2a] to-[#0a0015]" style={{ fontFamily: "'Spline Sans', sans-serif" }}>
+      {/* Auth Bar */}
+      <div className="absolute top-4 right-6 z-50 flex items-center gap-3">
+        {user ? (
+          <>
+            <span className="text-gray-300 text-sm">Hola, <span className="text-[#b794f4] font-semibold">{user.username}</span></span>
+            <button onClick={logout} className="px-4 py-2 text-sm text-gray-300 hover:text-white border border-white/20 hover:border-[#b794f4] rounded-full transition-all">
+              Cerrar Sesión
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="px-4 py-2 text-sm text-gray-300 hover:text-white border border-white/20 hover:border-[#b794f4] rounded-full transition-all">
+              Iniciar Sesión
+            </Link>
+            <Link to="/register" className="px-4 py-2 text-sm text-white bg-gradient-to-r from-[#b794f4] to-[#421d53] rounded-full hover:opacity-90 transition-opacity">
+              Registrarse
+            </Link>
+          </>
+        )}
+      </div>
+
       {/* Hero Section */}
       <Hero />
 
@@ -88,11 +120,17 @@ const Landing: React.FC = () => {
           </div>
 
           {/* Games Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {featuredGames.map((game) => (
-              <GameCard key={game.id} {...game} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="text-[#b794f4] text-xl animate-pulse">Cargando juegos...</div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {featuredGames.map((game) => (
+                <GameCard key={game.id} {...game} />
+              ))}
+            </div>
+          )}
 
           {/* View All Button */}
           <div className="text-center mt-12">
@@ -208,15 +246,15 @@ const Landing: React.FC = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="group relative px-10 py-5 bg-white text-[#421d53] rounded-full font-bold text-lg shadow-xl hover:shadow-2xl hover:shadow-white/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
+            <Link to="/register" className="group relative px-10 py-5 bg-white text-[#421d53] rounded-full font-bold text-lg shadow-xl hover:shadow-2xl hover:shadow-white/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
               <span>Crear Cuenta Gratis</span>
               <span className="material-icons group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </button>
+            </Link>
 
-            <button className="px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-full font-bold text-white text-lg transition-all duration-300 flex items-center gap-2">
+            <Link to="/games" className="px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 hover:border-white hover:bg-white/20 rounded-full font-bold text-white text-lg transition-all duration-300 flex items-center gap-2">
               <span className="material-icons">info</span>
-              <span>Saber Más</span>
-            </button>
+              <span>Ver Catálogo</span>
+            </Link>
           </div>
 
           {/* Trust badges */}

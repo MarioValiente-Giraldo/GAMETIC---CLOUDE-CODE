@@ -1,21 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import GameCard from '../components/game/GameCard';
-import { allGames } from '../data/gamesData';
+import { getGames, type Game } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 const Games: React.FC = () => {
+  const { user, logout } = useAuth();
+  const [games, setGames] = useState<Game[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('Todos');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // Obtener todos los géneros únicos
-  const allGenres = ['Todos', ...new Set(allGames.flatMap(game => game.genres))];
+  const genres = ['Todos', 'RPG', 'Action', 'Adventure', 'FPS', 'Horror', 'Indie', 'Strategy', 'Platformer', 'Roguelike', 'Survival', 'Simulation', 'Souls-like', 'Metroidvania', 'Co-op', 'Stealth', 'Puzzle', 'JRPG'];
 
-  // Filtrar juegos por búsqueda y género
-  const filteredGames = allGames.filter(game => {
-    const matchesSearch = game.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGenre = selectedGenre === 'Todos' || game.genres.includes(selectedGenre);
-    return matchesSearch && matchesGenre;
-  });
+  // Debounce search term (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchGames = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getGames({
+        search: debouncedSearch || undefined,
+        genre: selectedGenre !== 'Todos' ? selectedGenre : undefined,
+        page,
+        limit: 12,
+      });
+      setGames(data.games);
+      setTotalPages(data.pagination.totalPages);
+      setTotal(data.pagination.total);
+    } catch {
+      setGames([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, selectedGenre, page]);
+
+  useEffect(() => {
+    fetchGames();
+  }, [fetchGames]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedGenre]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0015] via-[#1a0a2a] to-[#0a0015]" style={{ fontFamily: "'Spline Sans', sans-serif" }}>
@@ -32,13 +66,27 @@ const Games: React.FC = () => {
               </h1>
             </Link>
 
-            <Link
-              to="/"
-              className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition-colors"
-            >
-              <span className="material-icons">home</span>
-              <span>Inicio</span>
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/"
+                className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                <span className="material-icons">home</span>
+                <span>Inicio</span>
+              </Link>
+              {user ? (
+                <>
+                  <span className="text-gray-400 text-sm">{user.username}</span>
+                  <button onClick={logout} className="px-3 py-1 text-sm text-gray-300 hover:text-white border border-white/20 hover:border-[#b794f4] rounded-full transition-all">
+                    Salir
+                  </button>
+                </>
+              ) : (
+                <Link to="/login" className="px-4 py-2 text-sm text-white bg-gradient-to-r from-[#b794f4] to-[#421d53] rounded-full hover:opacity-90 transition-opacity">
+                  Iniciar Sesión
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -56,7 +104,7 @@ const Games: React.FC = () => {
               Todos los <span className="bg-gradient-to-r from-[#b794f4] to-[#421d53] bg-clip-text text-transparent">Juegos</span>
             </h2>
             <p className="text-gray-400 text-lg">
-              Explora nuestra colección de {allGames.length} juegos increíbles
+              Explora nuestra colección de {total} juegos increíbles
             </p>
           </div>
 
@@ -86,7 +134,7 @@ const Games: React.FC = () => {
                 onChange={(e) => setSelectedGenre(e.target.value)}
                 className="pl-12 pr-8 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white focus:outline-none focus:border-[#b794f4] transition-colors appearance-none cursor-pointer min-w-[200px]"
               >
-                {allGenres.map(genre => (
+                {genres.map(genre => (
                   <option key={genre} value={genre} className="bg-[#1a0a2a]">
                     {genre}
                   </option>
@@ -101,7 +149,7 @@ const Games: React.FC = () => {
           {/* Results Count */}
           <div className="mb-6">
             <p className="text-gray-400">
-              Mostrando <span className="text-[#b794f4] font-semibold">{filteredGames.length}</span> juegos
+              Mostrando <span className="text-[#b794f4] font-semibold">{games.length}</span> de <span className="text-[#b794f4] font-semibold">{total}</span> juegos
               {searchTerm && ` para "${searchTerm}"`}
               {selectedGenre !== 'Todos' && ` en ${selectedGenre}`}
             </p>
@@ -110,11 +158,15 @@ const Games: React.FC = () => {
       </section>
 
       {/* Games Grid */}
-      <section className="pb-20 px-6">
+      <section className="pb-12 px-6">
         <div className="max-w-7xl mx-auto">
-          {filteredGames.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-20">
+              <div className="text-[#b794f4] text-xl animate-pulse">Cargando juegos...</div>
+            </div>
+          ) : games.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredGames.map((game) => (
+              {games.map((game) => (
                 <GameCard key={game.id} {...game} />
               ))}
             </div>
@@ -138,6 +190,59 @@ const Games: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <section className="pb-20 px-6">
+          <div className="max-w-7xl mx-auto flex justify-center items-center gap-4">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="flex items-center gap-1 px-5 py-2 bg-white/5 border border-white/20 rounded-full text-white hover:border-[#b794f4] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <span className="material-icons text-sm">chevron_left</span>
+              Anterior
+            </button>
+
+            <div className="flex items-center gap-2">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (page <= 3) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = page - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className={`w-10 h-10 rounded-full font-semibold transition-all ${
+                      page === pageNum
+                        ? 'bg-gradient-to-r from-[#b794f4] to-[#421d53] text-white'
+                        : 'bg-white/5 text-gray-400 hover:text-white hover:border-[#b794f4] border border-white/20'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="flex items-center gap-1 px-5 py-2 bg-white/5 border border-white/20 rounded-full text-white hover:border-[#b794f4] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Siguiente
+              <span className="material-icons text-sm">chevron_right</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="relative py-8 px-6 border-t border-white/10">

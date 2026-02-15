@@ -17,6 +17,9 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Docker volumes
+pgdata/
+
 # Excluded project files
 skills/
 .claude/

@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  reviews   Review[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Game {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String   @default("")
+  coverImage  String   @map("cover_image")
+  genres      String[]
+  score       Float    @default(0)
+  platform    String[]
+  steamAppId  String?  @map("steam_app_id")
+  reviews     Review[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("games")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Float
+  comment   String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int      @map("user_id")
+  game      Game     @relation(fields: [gameId], references: [id])
+  gameId    Int      @map("game_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("reviews")
+}
